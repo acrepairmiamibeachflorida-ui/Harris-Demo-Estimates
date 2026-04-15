@@ -1,0 +1,9 @@
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #0B0B0B;
+  font-family: Inter, system-ui, sans-serif;
+}

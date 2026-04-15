@@ -1,0 +1,391 @@
+import React, { useMemo, useState } from "react";
+
+type Step = "home" | "estimate" | "results" | "booking";
+
+type ProjectName = "Kitchen Remodel" | "Bathroom Remodel" | "Full Renovation" | "Addition";
+type SizeName = "Small" | "Medium" | "Large";
+type FinishName = "Standard" | "High-End" | "Luxury";
+
+const projectOptions: ProjectName[] = [
+  "Kitchen Remodel",
+  "Bathroom Remodel",
+  "Full Renovation",
+  "Addition",
+];
+
+const sizeOptions: SizeName[] = ["Small", "Medium", "Large"];
+const finishOptions: FinishName[] = ["Standard", "High-End", "Luxury"];
+
+const pricing: Record<ProjectName, Record<SizeName, Record<FinishName, [number, number]>>> = {
+  "Kitchen Remodel": {
+    Small: { Standard: [45000, 65000], "High-End": [75000, 105000], Luxury: [110000, 160000] },
+    Medium: { Standard: [65000, 85000], "High-End": [95000, 135000], Luxury: [140000, 210000] },
+    Large: { Standard: [85000, 110000], "High-End": [120000, 170000], Luxury: [175000, 250000] },
+  },
+  "Bathroom Remodel": {
+    Small: { Standard: [25000, 40000], "High-End": [45000, 65000], Luxury: [70000, 95000] },
+    Medium: { Standard: [35000, 50000], "High-End": [60000, 85000], Luxury: [90000, 120000] },
+    Large: { Standard: [45000, 65000], "High-End": [80000, 110000], Luxury: [115000, 150000] },
+  },
+  "Full Renovation": {
+    Small: { Standard: [90000, 130000], "High-End": [140000, 195000], Luxury: [210000, 300000] },
+    Medium: { Standard: [130000, 180000], "High-End": [190000, 265000], Luxury: [280000, 400000] },
+    Large: { Standard: [180000, 240000], "High-End": [250000, 340000], Luxury: [360000, 500000] },
+  },
+  Addition: {
+    Small: { Standard: [85000, 120000], "High-End": [125000, 170000], Luxury: [180000, 250000] },
+    Medium: { Standard: [120000, 165000], "High-End": [170000, 230000], Luxury: [240000, 325000] },
+    Large: { Standard: [165000, 220000], "High-End": [230000, 310000], Luxury: [320000, 425000] },
+  },
+};
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <div className="mb-3 text-xs font-semibold uppercase tracking-[0.22em] text-zinc-500">{children}</div>;
+}
+
+function PrimaryButton({ children, onClick, full = false }: { children: React.ReactNode; onClick?: () => void; full?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#C9A96E] px-5 py-3 text-sm font-semibold text-black transition hover:brightness-105 ${full ? "w-full" : ""}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function SecondaryButton({ children, onClick, full = false }: { children: React.ReactNode; onClick?: () => void; full?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex min-h-12 items-center justify-center rounded-2xl border border-white/15 bg-transparent px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/5 ${full ? "w-full" : ""}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function OptionButton({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`min-h-12 rounded-2xl border px-4 py-3 text-sm font-medium transition ${
+        active
+          ? "border-[#C9A96E] bg-[#C9A96E]/10 text-white shadow-[0_0_0_1px_rgba(201,169,110,0.25)]"
+          : "border-white/10 bg-white/5 text-zinc-300 hover:border-white/20 hover:bg-white/10"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function ShellCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`rounded-[28px] border border-white/10 bg-white/5 backdrop-blur ${className}`}>{children}</div>;
+}
+
+export default function HarrisContractingLiveDemo() {
+  const [step, setStep] = useState<Step>("home");
+  const [project, setProject] = useState<ProjectName>("Kitchen Remodel");
+  const [size, setSize] = useState<SizeName>("Medium");
+  const [finish, setFinish] = useState<FinishName>("High-End");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+
+  const estimate = useMemo(() => {
+    const [min, max] = pricing[project][size][finish];
+    return { min, max };
+  }, [project, size, finish]);
+
+  return (
+    <div className="min-h-screen bg-[#0B0B0B] text-white">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(201,169,110,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,rgba(255,255,255,0.06),transparent_24%)]" />
+
+      <div className="relative mx-auto max-w-7xl px-4 pb-12 pt-5 sm:px-6 lg:px-8">
+        <header className="mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="text-[11px] uppercase tracking-[0.35em] text-zinc-500">Harris Contracting</div>
+            <div className="mt-1 text-lg font-semibold sm:text-xl">Franchise-Level Client Experience</div>
+          </div>
+          <div className="flex gap-3">
+            <PrimaryButton onClick={() => setStep(step === "home" ? "estimate" : "booking")}>{step === "home" ? "Start Estimate" : "Book Review"}</PrimaryButton>
+          </div>
+        </header>
+
+        {step === "home" && (
+          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8 lg:pt-6">
+            <section className="order-2 lg:order-1 lg:pr-6">
+              <div className="mb-5 inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs text-zinc-300">
+                Projects Starting at $75K+
+              </div>
+              <h1 className="max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
+                See What Your Renovation Will Cost <span className="text-[#C9A96E]">Before You Commit</span>
+              </h1>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
+                A guided estimate experience designed to pre-qualify clients, introduce pricing early, and make a one-man operation feel like a premium, system-driven firm.
+              </p>
+
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                <PrimaryButton onClick={() => setStep("estimate")}>Start Your Estimate</PrimaryButton>
+                <SecondaryButton onClick={() => setStep("results")}>Preview Results Experience</SecondaryButton>
+              </div>
+
+              <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                {[
+                  "Structured lead filtering",
+                  "Premium pricing presentation",
+                  "Less wasted back-and-forth",
+                ].map((item) => (
+                  <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-300">
+                    {item}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="order-1 lg:order-2">
+              <ShellCard className="overflow-hidden">
+                <div className="border-b border-white/10 p-5 sm:p-6">
+                  <SectionLabel>Live Demo Preview</SectionLabel>
+                  <div className="text-2xl font-semibold sm:text-3xl">Client Estimate Experience</div>
+                </div>
+
+                <div className="space-y-5 p-5 sm:p-6">
+                  <div className="rounded-[24px] border border-[#C9A96E]/25 bg-[#C9A96E]/10 p-5 sm:p-6">
+                    <div className="text-sm text-zinc-300">Estimated Investment</div>
+                    <div className="mt-2 text-3xl font-semibold leading-tight sm:text-4xl">
+                      {formatCurrency(estimate.min)} – {formatCurrency(estimate.max)}
+                    </div>
+                    <div className="mt-2 text-sm text-zinc-400">Based on current demo selections</div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {projectOptions.map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => setProject(item)}
+                        className={`rounded-2xl border p-4 text-left transition ${
+                          project === item ? "border-[#C9A96E] bg-[#C9A96E]/10" : "border-white/10 bg-white/5 hover:bg-white/10"
+                        }`}
+                      >
+                        <div className="font-medium">{item}</div>
+                        <div className="mt-1 text-sm text-zinc-400">Premium project planning flow</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </ShellCard>
+            </section>
+          </div>
+        )}
+
+        {step === "estimate" && (
+          <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
+            <ShellCard className="order-2 p-5 sm:p-6 lg:order-1 lg:p-8">
+              <SectionLabel>Step 1 of 2</SectionLabel>
+              <h2 className="text-3xl font-semibold sm:text-4xl">Tell us about your project</h2>
+              <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-400">
+                This estimate creates a realistic planning range before scheduling a project review.
+              </p>
+
+              <div className="mt-8 space-y-7">
+                <div>
+                  <SectionLabel>Project Type</SectionLabel>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {projectOptions.map((item) => (
+                      <button
+                        key={item}
+                        onClick={() => setProject(item)}
+                        className={`rounded-3xl border p-5 text-left transition ${
+                          project === item
+                            ? "border-[#C9A96E] bg-[#C9A96E]/10 shadow-[0_0_0_1px_rgba(201,169,110,0.2)]"
+                            : "border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10"
+                        }`}
+                      >
+                        <div className="text-lg font-medium">{item}</div>
+                        <div className="mt-1 text-sm text-zinc-400">Structured estimate path</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <SectionLabel>Project Size</SectionLabel>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {sizeOptions.map((item) => (
+                      <OptionButton key={item} active={size === item} label={item} onClick={() => setSize(item)} />
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <SectionLabel>Finish Level</SectionLabel>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {finishOptions.map((item) => (
+                      <OptionButton key={item} active={finish === item} label={item} onClick={() => setFinish(item)} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <PrimaryButton onClick={() => setStep("results")}>See My Estimate</PrimaryButton>
+                <SecondaryButton onClick={() => setStep("home")}>Back</SecondaryButton>
+              </div>
+            </ShellCard>
+
+            <ShellCard className="order-1 h-fit p-5 sm:p-6 lg:order-2 lg:sticky lg:top-6 lg:p-8">
+              <SectionLabel>Live Pricing Preview</SectionLabel>
+              <div className="rounded-[24px] border border-[#C9A96E]/25 bg-[#C9A96E]/10 p-5 sm:p-6">
+                <div className="text-sm text-zinc-300">Estimated Investment</div>
+                <div className="mt-3 text-3xl font-semibold leading-tight sm:text-4xl">
+                  {formatCurrency(estimate.min)}
+                  <br />
+                  {formatCurrency(estimate.max)}
+                </div>
+                <div className="mt-3 text-sm leading-6 text-zinc-400">
+                  This planning range updates as selections change. Fewer surprises. Better-fit clients. Much less awkward budget ping-pong.
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 text-sm text-zinc-400">
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><span>Project</span><span className="text-zinc-200">{project}</span></div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><span>Size</span><span className="text-zinc-200">{size}</span></div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"><span>Finish</span><span className="text-zinc-200">{finish}</span></div>
+              </div>
+            </ShellCard>
+          </div>
+        )}
+
+        {step === "results" && (
+          <div className="mx-auto max-w-5xl">
+            <div className="text-center">
+              <SectionLabel>Your Estimate</SectionLabel>
+              <h2 className="text-3xl font-semibold sm:text-4xl lg:text-5xl">Your Project Estimate Is Ready</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-zinc-400 sm:text-lg">
+                Based on your selections, this is the realistic planning range a qualified client would see before booking a review.
+              </p>
+            </div>
+
+            <ShellCard className="mt-8 p-5 sm:p-6 lg:p-8">
+              <div className="rounded-[28px] border border-[#C9A96E]/25 bg-[#C9A96E]/10 p-6 text-center sm:p-8">
+                <div className="text-sm uppercase tracking-[0.25em] text-zinc-300">Estimated Investment</div>
+                <div className="mt-3 text-4xl font-semibold leading-tight sm:text-5xl lg:text-6xl">
+                  {formatCurrency(estimate.min)} – {formatCurrency(estimate.max)}
+                </div>
+                <div className="mt-3 text-sm leading-6 text-zinc-400">
+                  This is a general planning range based on the scope and finish level selected.
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                {[
+                  ["Project", project],
+                  ["Finish", finish],
+                  ["Client Fit", "Premium Match"],
+                ].map(([label, value]) => (
+                  <div key={label} className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                    <div className="text-xs uppercase tracking-[0.2em] text-zinc-500">{label}</div>
+                    <div className="mt-2 font-medium text-white">{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+                <div className="rounded-[28px] border border-white/10 bg-black/30 p-5 sm:p-6">
+                  <SectionLabel>Watch This Before Moving Forward</SectionLabel>
+                  <div className="flex min-h-[220px] items-center justify-center rounded-[24px] border border-white/10 bg-gradient-to-br from-zinc-900 to-zinc-800 p-6 text-center">
+                    <p className="max-w-md text-sm leading-7 text-zinc-300 sm:text-base">
+                      “Based on what you selected, your project falls within this planning range. The next step is a project review where scope, materials, and site conditions are confirmed before final pricing.”
+                    </p>
+                  </div>
+                </div>
+
+                <div className="rounded-[28px] border border-white/10 bg-white/5 p-5 sm:p-6">
+                  <SectionLabel>Why this works</SectionLabel>
+                  <div className="grid gap-3">
+                    {[
+                      "Pricing is introduced before the call",
+                      "Low-budget leads self-filter",
+                      "Your process feels premium and structured",
+                    ].map((item) => (
+                      <div key={item} className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-zinc-300">
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 grid gap-3">
+                    <PrimaryButton full onClick={() => setStep("booking")}>Book Your Project Review</PrimaryButton>
+                    <SecondaryButton full onClick={() => setStep("estimate")}>Edit Estimate</SecondaryButton>
+                  </div>
+                </div>
+              </div>
+            </ShellCard>
+          </div>
+        )}
+
+        {step === "booking" && (
+          <div className="mx-auto max-w-2xl">
+            <ShellCard className="p-5 sm:p-6 lg:p-8">
+              <div className="text-center">
+                <SectionLabel>Final Step</SectionLabel>
+                <h2 className="text-3xl font-semibold sm:text-4xl">Schedule Your Project Review</h2>
+                <p className="mt-3 text-base leading-7 text-zinc-400 sm:text-lg">
+                  This is where qualified prospects move from estimate to conversation. Clean, simple, and no chaos.
+                </p>
+              </div>
+
+              <div className="mt-7 grid gap-4">
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Full Name"
+                  className="h-14 rounded-2xl border border-white/10 bg-black/30 px-4 text-white outline-none placeholder:text-zinc-500 focus:border-[#C9A96E]"
+                />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Email Address"
+                  className="h-14 rounded-2xl border border-white/10 bg-black/30 px-4 text-white outline-none placeholder:text-zinc-500 focus:border-[#C9A96E]"
+                />
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Phone Number"
+                  className="h-14 rounded-2xl border border-white/10 bg-black/30 px-4 text-white outline-none placeholder:text-zinc-500 focus:border-[#C9A96E]"
+                />
+              </div>
+
+              <div className="mt-6 rounded-[24px] border border-[#C9A96E]/25 bg-[#C9A96E]/10 p-5">
+                <SectionLabel>Project Review Summary</SectionLabel>
+                <div className="text-xl font-semibold text-white sm:text-2xl">{project} · {finish}</div>
+                <div className="mt-2 text-sm leading-6 text-zinc-300">
+                  Planning range: {formatCurrency(estimate.min)} – {formatCurrency(estimate.max)}
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-3">
+                <PrimaryButton full>Confirm Appointment Request</PrimaryButton>
+                <SecondaryButton full onClick={() => setStep("results")}>Back to Results</SecondaryButton>
+              </div>
+
+              <p className="mt-4 text-center text-sm leading-6 text-zinc-500">
+                Only clients aligned with project scope and investment level are scheduled.
+              </p>
+            </ShellCard>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
