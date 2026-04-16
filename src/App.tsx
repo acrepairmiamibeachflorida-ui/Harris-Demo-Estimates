@@ -107,6 +107,21 @@ export default function HarrisContractingLiveDemo() {
     return () => window.clearTimeout(timer);
   }, [project, size, finish, estimateSubstep]);
 
+useEffect(() => {
+  const sendHeight = () => {
+    const height = document.body.scrollHeight;
+    window.parent.postMessage(
+      { type: "resize-iframe", height },
+      "*"
+    );
+  };
+
+  sendHeight();
+  window.addEventListener("resize", sendHeight);
+
+  return () => window.removeEventListener("resize", sendHeight);
+}, [step, estimateSubstep]);
+
   const colors = {
     bg: "#0B0B0B",
     panel: "#161616",
