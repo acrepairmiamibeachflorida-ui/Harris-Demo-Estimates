@@ -6,6 +6,27 @@ type SizeName = "Small" | "Medium" | "Large";
 type FinishName = "Standard" | "High-End" | "Luxury";
 type EstimateSubstep = 0 | 1 | 2;
 
+type LeadPacket = {
+  contact: {
+    name: string;
+    email: string;
+    phone: string;
+  };
+  estimate: {
+    project: ProjectName | null;
+    size: SizeName | null;
+    finish: FinishName | null;
+    min: number;
+    max: number;
+    displayRange: string;
+  };
+  meta: {
+    createdAt: string;
+    leadSource: string;
+    status: string;
+  };
+};
+
 const projectOptions: ProjectName[] = [
   "Kitchen Remodel",
   "Bathroom Remodel",
@@ -51,6 +72,156 @@ function isMobileWidth() {
   return typeof window !== "undefined" ? window.innerWidth < 768 : false;
 }
 
+function buildLeadPacket(params: {
+  name: string;
+  email: string;
+  phone: string;
+  project: ProjectName | null;
+  size: SizeName | null;
+  finish: FinishName | null;
+  min: number;
+  max: number;
+}): LeadPacket {
+  const { name, email, phone, project, size, finish, min, max } = params;
+
+  return {
+    contact: {
+      name: name.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+    },
+    estimate: {
+      project,
+      size,
+      finish,
+      min,
+      max,
+      displayRange: `${formatCurrency(min)} – ${formatCurrency(max)}`,
+    },
+    meta: {
+      createdAt: new Date().toISOString(),
+      leadSource: "Estimator Funnel",
+      status: "estimate_completed",
+    },
+  };
+}
+
+function DelayedHelpModal({
+  open,
+  onClose,
+  range,
+}: {
+  open: boolean;
+  onClose: () => void;
+  range: string;
+}) {
+  if (!open) return null;
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        background: "rgba(0,0,0,0.6)",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        zIndex: 1000,
+        padding: 20,
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 520,
+          transform: "scale(0.96)",
+          animation: "modalPop 0.3s ease forwards",
+          borderRadius: 24,
+          border: "1px solid rgba(201,169,110,0.28)",
+          background: "#161616",
+          boxShadow: "0 30px 70px rgba(0,0,0,0.35)",
+          padding: 24,
+          textAlign: "center",
+          color: "#FFFFFF",
+          fontFamily: "Inter, system-ui, sans-serif",
+        }}
+      >
+        <div
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.22em",
+            textTransform: "uppercase",
+            color: "#A1A1AA",
+            marginBottom: 12,
+          }}
+        >
+          Quick Help
+        </div>
+
+        <div style={{ fontSize: 28, fontWeight: 700, lineHeight: 1.15, marginBottom: 12 }}>
+          Want help understanding what goes into your {range} range?
+        </div>
+
+        <div style={{ fontSize: 15, lineHeight: 1.7, color: "#A1A1AA", marginBottom: 20 }}>
+          If you would like help before moving forward, our AI assistant can answer common questions about timeline, budget, and next steps.
+        </div>
+
+       <div style={{ display: "grid", gap: 12 }}>
+         <button
+  type="button"
+  onClick={() => {
+    const url = "https://app.hvacinabox.com/v2/preview/5LRWcM9MOfl5MdgqCwIL?notrack=true";
+
+    const isMobile = window.innerWidth < 768;
+
+    const width = isMobile ? 360 : 420;
+    const height = isMobile ? 650 : 750;
+
+    window.open(
+      url,
+      "aiAssistant",
+      `width=${width},height=${height},top=100,left=100,resizable=yes,scrollbars=yes`
+    );
+
+    onClose(); // closes your modal immediately
+  }}
+  style={{
+    display: "block",
+    width: "100%",
+    background: "#C9A96E",
+    color: "#000000",
+    borderRadius: 16,
+    minHeight: 52,
+    fontWeight: 700,
+    fontSize: 15,
+    border: "none",
+    cursor: "pointer",
+  }}
+>
+  Speak to Our AI Assistant
+</button>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "transparent",
+              color: "#FFFFFF",
+              border: "1px solid rgba(255,255,255,0.12)",
+              borderRadius: 16,
+              minHeight: 52,
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+            }}
+          >
+            No, Thank You
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function HarrisContractingLiveDemo() {
   const [step, setStep] = useState<Step>("home");
   const [estimateSubstep, setEstimateSubstep] = useState<EstimateSubstep>(0);
@@ -60,10 +231,14 @@ export default function HarrisContractingLiveDemo() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [leadPacket, setLeadPacket] = useState<LeadPacket | null>(null);
   const [isMobile, setIsMobile] = useState(isMobileWidth());
   const [visible, setVisible] = useState(false);
   const [pricePulse, setPricePulse] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const videoRef = React.useRef<HTMLVideoElement | null>(null);
 
   const estimate = useMemo(() => {
     if (!project) return null;
@@ -107,20 +282,32 @@ export default function HarrisContractingLiveDemo() {
     return () => window.clearTimeout(timer);
   }, [project, size, finish, estimateSubstep]);
 
-useEffect(() => {
-  const sendHeight = () => {
-    const height = document.body.scrollHeight;
-    window.parent.postMessage(
-      { type: "resize-iframe", height },
-      "*"
-    );
-  };
+  useEffect(() => {
+    if (step !== "results") {
+      setShowHelpModal(false);
+      return;
+    }
 
-  sendHeight();
-  window.addEventListener("resize", sendHeight);
+    if (isVideoPlaying) return;
 
-  return () => window.removeEventListener("resize", sendHeight);
-}, [step, estimateSubstep]);
+    const timer = window.setTimeout(() => {
+      setShowHelpModal(true);
+    }, 30000);
+
+    return () => window.clearTimeout(timer);
+  }, [step, isVideoPlaying]);
+
+  useEffect(() => {
+    const sendHeight = () => {
+      const height = document.body.scrollHeight;
+      window.parent.postMessage({ type: "resize-iframe", height }, "*");
+    };
+
+    sendHeight();
+    window.addEventListener("resize", sendHeight);
+
+    return () => window.removeEventListener("resize", sendHeight);
+  }, [step, estimateSubstep]);
 
   const colors = {
     bg: "#0B0B0B",
@@ -156,6 +343,71 @@ useEffect(() => {
     if (project && !size) return `Range shown for ${project}. Choose project size to narrow it down.`;
     if (project && size && !finish) return `Range shown for ${project}, ${size.toLowerCase()} scope. Choose finish level to refine it further.`;
     return `Based on ${project}, ${size!.toLowerCase()} scope, and ${finish!.toLowerCase()} finishes.`;
+  }
+
+  function finalizeLeadPacket() {
+    if (!estimate) return null;
+
+    const packet = buildLeadPacket({
+      name,
+      email,
+      phone,
+      project,
+      size,
+      finish,
+      min: estimate.min,
+      max: estimate.max,
+    });
+
+    setLeadPacket(packet);
+    return packet;
+  }
+
+  function getFreshLeadPacket() {
+    if (!estimate) return null;
+
+    return buildLeadPacket({
+      name,
+      email,
+      phone,
+      project,
+      size,
+      finish,
+      min: estimate.min,
+      max: estimate.max,
+    });
+  }
+
+  function goToBooking() {
+    finalizeLeadPacket();
+    setShowHelpModal(false);
+    setStep("booking");
+  }
+
+  function buttonHoverProps(): React.HTMLAttributes<HTMLButtonElement> {
+    return isMobile
+      ? {}
+      : {
+          onMouseEnter: (e) => {
+            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)";
+          },
+          onMouseLeave: (e) => {
+            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0px)";
+          },
+        };
+  }
+
+  function cardHoverProps(): React.HTMLAttributes<HTMLDivElement> {
+    return isMobile
+      ? {}
+      : {
+          onMouseEnter: (e) => {
+            (e.currentTarget as HTMLDivElement).style.transform = "translateY(-4px)";
+          },
+          onMouseLeave: (e) => {
+            (e.currentTarget as HTMLDivElement).style.transform = "translateY(0px)";
+          },
+        };
   }
 
   const styles = {
@@ -366,32 +618,6 @@ useEffect(() => {
     } as React.CSSProperties,
   };
 
-  function buttonHoverProps(): React.HTMLAttributes<HTMLButtonElement> {
-    return isMobile
-      ? {}
-      : {
-          onMouseEnter: (e) => {
-            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(-2px)";
-          },
-          onMouseLeave: (e) => {
-            (e.currentTarget as HTMLButtonElement).style.transform = "translateY(0px)";
-          },
-        };
-  }
-
-  function cardHoverProps(): React.HTMLAttributes<HTMLDivElement> {
-    return isMobile
-      ? {}
-      : {
-          onMouseEnter: (e) => {
-            (e.currentTarget as HTMLDivElement).style.transform = "translateY(-4px)";
-          },
-          onMouseLeave: (e) => {
-            (e.currentTarget as HTMLDivElement).style.transform = "translateY(0px)";
-          },
-        };
-  }
-
   function progressBar() {
     return (
       <div style={{ height: 4, background: "rgba(255,255,255,0.1)", borderRadius: 999, overflow: "hidden", marginTop: 8, width: "100%" }}>
@@ -426,13 +652,29 @@ useEffect(() => {
           </p>
 
           <div style={{ display: "flex", gap: 12, flexDirection: isMobile ? "column" : "row", marginTop: 22 }}>
-            <button style={styles.primaryButton} onClick={() => { setProject(null); setSize(null); setFinish(null); setEstimateSubstep(0); setStep("estimate"); }} {...buttonHoverProps()}>Start Your Estimate</button>
-            <button style={styles.secondaryButton} onClick={() => setStep("results")} {...buttonHoverProps()}>Preview Results Experience</button>
+            <button
+              style={styles.primaryButton}
+              onClick={() => {
+                setProject(null);
+                setSize(null);
+                setFinish(null);
+                setEstimateSubstep(0);
+                setStep("estimate");
+              }}
+              {...buttonHoverProps()}
+            >
+              Start Your Estimate
+            </button>
+            <button style={styles.secondaryButton} onClick={() => setStep("results")} {...buttonHoverProps()}>
+              Preview Results Experience
+            </button>
           </div>
 
           <div style={styles.chipsGrid}>
             {["Structured lead filtering", "Premium pricing presentation", "Less wasted back-and-forth"].map((item) => (
-              <div key={item} style={styles.chip}>{item}</div>
+              <div key={item} style={styles.chip}>
+                {item}
+              </div>
             ))}
           </div>
         </div>
@@ -451,7 +693,7 @@ useEffect(() => {
                 lineHeight: 1.1,
                 transform: pricePulse ? "scale(1.025)" : "scale(1)",
                 opacity: pricePulse ? 0.92 : 1,
-                transition: "transform 0.24s ease, opacity 0.24s ease"
+                transition: "transform 0.24s ease, opacity 0.24s ease",
               }}
             >
               {getEstimateDisplay("home")}
@@ -490,7 +732,9 @@ useEffect(() => {
       return (
         <div style={styles.optionGrid}>
           {sizeOptions.map((item) => (
-            <button key={item} style={styles.optionButton(size === item)} onClick={() => setSize(item)} {...buttonHoverProps()}>{item}</button>
+            <button key={item} style={styles.optionButton(size === item)} onClick={() => setSize(item)} {...buttonHoverProps()}>
+              {item}
+            </button>
           ))}
         </div>
       );
@@ -499,7 +743,9 @@ useEffect(() => {
     return (
       <div style={styles.optionGrid}>
         {finishOptions.map((item) => (
-          <button key={item} style={styles.optionButton(finish === item)} onClick={() => setFinish(item)} {...buttonHoverProps()}>{item}</button>
+          <button key={item} style={styles.optionButton(finish === item)} onClick={() => setFinish(item)} {...buttonHoverProps()}>
+            {item}
+          </button>
         ))}
       </div>
     );
@@ -544,14 +790,12 @@ useEffect(() => {
                   marginTop: 10,
                   transform: pricePulse ? "scale(1.02)" : "scale(1)",
                   opacity: pricePulse ? 0.92 : 1,
-                  transition: "transform 0.24s ease, opacity 0.24s ease"
+                  transition: "transform 0.24s ease, opacity 0.24s ease",
                 }}
               >
                 {getEstimateDisplay("estimate")}
               </div>
-              <div style={{ fontSize: 14, color: colors.muted, marginTop: 8, lineHeight: 1.6 }}>
-                {getEstimateHelperText()}
-              </div>
+              <div style={{ fontSize: 14, color: colors.muted, marginTop: 8, lineHeight: 1.6 }}>{getEstimateHelperText()}</div>
             </div>
           )}
 
@@ -594,240 +838,267 @@ useEffect(() => {
   }
 
   function renderResults() {
-  const urgencyItems = [
-    "Review slots are intentionally limited each week to keep projects moving quickly.",
-    "Clients who delay scheduling usually lose momentum and restart the process later.",
-    "The next step is simply to confirm fit and scope before a final proposal is prepared.",
-  ];
+    const urgencyItems = [
+      "Review slots are intentionally limited each week to keep projects moving quickly.",
+      "Clients who delay scheduling usually lose momentum and restart the process later.",
+      "The next step is simply to confirm fit and scope before a final proposal is prepared.",
+    ];
 
-  return (
-    <div style={{ maxWidth: 1040, margin: "0 auto" }}>
-      <div style={styles.stepBar}>
-        <span>Step 2 of 3</span>
-        <span>Now the number does the heavy lifting.</span>
-        {progressBar()}
-      </div>
-
-      <div style={{ textAlign: "center", marginBottom: 24 }}>
-        <div style={styles.sectionLabel}>Step 2 · Results Experience</div>
-        <h2 style={styles.h2}>Your Project Estimate Is Ready</h2>
-        <p style={{ ...styles.body, maxWidth: 760, margin: "14px auto 0" }}>
-          This is not the calculator anymore. This is the decision screen — where the range is framed, the project fit is reinforced, and the next step becomes obvious.
-        </p>
-      </div>
-
-      <div style={styles.card} {...cardHoverProps()}>
-        <div style={{ ...styles.goldCard, textAlign: "center" }}>
-          <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: colors.muted, marginBottom: 8 }}>
-            Planning Range Confirmed
-          </div>
-          <div style={{ fontSize: 12, letterSpacing: "0.24em", textTransform: "uppercase", color: "#E4E4E7" }}>
-            Estimated Investment
-          </div>
-          <div
-            style={{
-              fontSize: isMobile ? 38 : 60,
-              fontWeight: 700,
-              lineHeight: 1.06,
-              marginTop: 12,
-              transform: pricePulse ? "scale(1.018)" : "scale(1)",
-              opacity: pricePulse ? 0.94 : 1,
-              transition: "transform 0.24s ease, opacity 0.24s ease",
-            }}
-          >
-            {getEstimateDisplay("estimate")}
-          </div>
-          <div style={{ fontSize: 14, color: colors.muted, marginTop: 10, lineHeight: 1.6 }}>
-            This is a general planning range based on the selections made in the estimate builder. The purpose here is to move from curiosity to commitment.
-          </div>
+    return (
+      <div style={{ maxWidth: 1040, margin: "0 auto" }}>
+        <div style={styles.stepBar}>
+          <span>Step 2 of 3</span>
+          <span>Now the number does the heavy lifting.</span>
+          {progressBar()}
         </div>
 
-        <div style={styles.summaryGrid}>
-          {[["Project", project], ["Finish", finish], ["Client Fit", "Premium Match"]].map(([label, value]) => (
-            <div key={label} style={styles.summaryCard}>
-              <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", color: "#71717A" }}>
-                {label}
-              </div>
-              <div style={{ marginTop: 8, fontWeight: 700 }}>{value}</div>
-            </div>
-          ))}
-        </div>
-
-        <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
-          <div style={{ ...styles.goldCard, textAlign: "center", padding: isMobile ? 16 : 18 }}>
-            <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#E4E4E7" }}>
-              Next Step: Project Review
-            </div>
-            <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, marginTop: 8 }}>
-              Schedule the review while the project scope is fresh.
-            </div>
-            <div style={{ fontSize: 14, color: colors.muted, marginTop: 8, lineHeight: 1.6 }}>
-              This keeps momentum high, confirms fit faster, and moves the right prospects toward a real conversation.
-            </div>
-          </div>
-        </div>
-
-        <div style={{ ...styles.twoColumn, marginTop: 22 }}>
-          <div
-            style={{ ...styles.card, padding: isMobile ? 18 : 22, background: "rgba(0,0,0,0.28)" }}
-            {...cardHoverProps()}
-          >
-            <div style={{ ...styles.sectionLabel, marginBottom: 14 }}>Personal Project Review Based on Your Selections</div>
-            <div
-              style={{
-                borderRadius: 22,
-                overflow: "hidden",
-                border: `1px solid ${colors.border}`,
-                background: "#000",
-                aspectRatio: "1 / 1",
-                position: "relative"
-              }}
-            >
-              <video
-                autoPlay
-                muted
-                loop
-                playsInline
-                style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#000", cursor: "pointer" }}
-                onClick={(e) => {
-                  const video = e.currentTarget;
-                  video.loop = false;
-                  video.muted = false;
-                  video.currentTime = 0;
-                  video.play();
-                }}
-              >
-                <source src="/harrisexplainervideo.mp4" type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-              <div
-                style={{
-                  position: "absolute",
-                  right: 12,
-                  bottom: 12,
-                  background: "rgba(0,0,0,0.55)",
-                  color: "#FFFFFF",
-                  fontSize: 12,
-                  padding: "8px 10px",
-                  borderRadius: 999,
-                  letterSpacing: "0.02em",
-                  pointerEvents: "none"
-                }}
-              >
-                Tap for sound
-              </div>
-            </div>
-          </div>
-
-          <div style={{ ...styles.card, padding: isMobile ? 18 : 22 }} {...cardHoverProps()}>
-            <div style={styles.sectionLabel}>Why This Converts</div>
-            <div style={{ display: "grid", gap: 12 }}>
-              {[
-                "Pricing is introduced before the call",
-                "Low-budget leads self-filter",
-                "The business feels premium and structured",
-              ].map((item) => (
-                <div key={item} style={styles.chip}>{item}</div>
-              ))}
-            </div>
-
-            <div style={{ marginTop: 16 }}>
-              <div style={styles.sectionLabel}>Urgency & Momentum</div>
-              <div style={{ display: "grid", gap: 10 }}>
-                {urgencyItems.map((item) => (
-                  <div key={item} style={{ ...styles.chip, fontSize: 13, lineHeight: 1.6 }}>{item}</div>
-                ))}
-              </div>
-            </div>
-
-            {!isMobile && (
-              <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
-                <button style={styles.primaryButton} onClick={() => setStep("booking")} {...buttonHoverProps()}>
-                  Schedule Project Review
-                </button>
-                <button
-                  style={styles.secondaryButton}
-                  onClick={() => {
-                    setEstimateSubstep(2);
-                    setStep("estimate");
-                  }}
-                  {...buttonHoverProps()}
-                >
-                  Edit Estimate
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function renderBooking() {
-  return (
-    <div style={{ maxWidth: 760, margin: "0 auto" }}>
-      <div style={styles.stepBar}>
-        <span>Step 3 of 3</span>
-        <span>Final step: turn interest into a scheduled review.</span>
-        {progressBar()}
-      </div>
-
-      <div style={styles.card} {...cardHoverProps()}>
-        <div style={{ textAlign: "center" }}>
-          <div style={styles.sectionLabel}>Step 3 · Booking</div>
-          <h2 style={styles.h2}>Schedule Your Project Review</h2>
-          <p style={{ ...styles.body, maxWidth: 560, margin: "14px auto 0" }}>
-            Qualified prospects move from estimate to conversation here. Clean, simple, and no chaos.
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <div style={styles.sectionLabel}>Step 2 · Results Experience</div>
+          <h2 style={styles.h2}>Your Project Estimate Is Ready</h2>
+          <p style={{ ...styles.body, maxWidth: 760, margin: "14px auto 0" }}>
+            This is not the calculator anymore. This is the decision screen — where the range is framed, the project fit is reinforced, and the next step becomes obvious.
           </p>
         </div>
 
-        <div style={{ display: "grid", gap: 14, marginTop: 24 }}>
-          <input style={styles.input} placeholder="Full Name" value={name} onChange={(e) => setName(e.target.value)} />
-          <input style={styles.input} placeholder="Email Address" value={email} onChange={(e) => setEmail(e.target.value)} />
-          <input style={styles.input} placeholder="Phone Number" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        </div>
-
-        <div style={{ ...styles.goldCard, marginTop: 20 }}>
-          <div style={styles.sectionLabel}>Project Review Summary</div>
-          <div style={{ fontSize: isMobile ? 24 : 28, fontWeight: 700 }}>{project} · {finish}</div>
-          <div style={{ fontSize: 14, color: colors.muted, marginTop: 8 }}>
-            Planning range: {getEstimateDisplay("estimate")}
+        <div style={styles.card} {...cardHoverProps()}>
+          <div style={{ ...styles.goldCard, textAlign: "center" }}>
+            <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: colors.muted, marginBottom: 8 }}>
+              Planning Range Confirmed
+            </div>
+            <div style={{ fontSize: 12, letterSpacing: "0.24em", textTransform: "uppercase", color: "#E4E4E7" }}>
+              Estimated Investment
+            </div>
+            <div
+              style={{
+                fontSize: isMobile ? 38 : 60,
+                fontWeight: 700,
+                lineHeight: 1.06,
+                marginTop: 12,
+                transform: pricePulse ? "scale(1.018)" : "scale(1)",
+                opacity: pricePulse ? 0.94 : 1,
+                transition: "transform 0.24s ease, opacity 0.24s ease",
+              }}
+            >
+              {getEstimateDisplay("estimate")}
+            </div>
+            <div style={{ fontSize: 14, color: colors.muted, marginTop: 10, lineHeight: 1.6 }}>
+              This is a general planning range based on the selections made in the estimate builder. The purpose here is to move from curiosity to commitment.
+            </div>
           </div>
-        </div>
 
-        <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
-          <div style={{ ...styles.chip, textAlign: "center" }}>
-            Project reviews are limited to qualified opportunities so each client receives focused attention.
+          <div style={styles.summaryGrid}>
+            {[["Project", project], ["Finish", finish], ["Client Fit", "Premium Match"]].map(([label, value]) => (
+              <div key={label} style={styles.summaryCard}>
+                <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: "0.2em", color: "#71717A" }}>{label}</div>
+                <div style={{ marginTop: 8, fontWeight: 700 }}>{value}</div>
+              </div>
+            ))}
           </div>
-          <div style={{ ...styles.chip, textAlign: "center" }}>
-            Submitting now helps secure the next available review window before scheduling fills.
-          </div>
-        </div>
 
-        {!isMobile && (
-          <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
-            <button style={styles.primaryButton} {...buttonHoverProps()}>
-              Confirm Appointment Request
-            </button>
-            <button style={styles.secondaryButton} onClick={() => setStep("results")} {...buttonHoverProps()}>
-              Back to Results
-            </button>
+          <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
+            <div style={{ ...styles.goldCard, textAlign: "center", padding: isMobile ? 16 : 18 }}>
+              <div style={{ fontSize: 12, letterSpacing: "0.2em", textTransform: "uppercase", color: "#E4E4E7" }}>
+                Next Step: Project Review
+              </div>
+              <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, marginTop: 8 }}>
+                Schedule the review while the project scope is fresh.
+              </div>
+              <div style={{ fontSize: 14, color: colors.muted, marginTop: 8, lineHeight: 1.6 }}>
+                This keeps momentum high, confirms fit faster, and moves the right prospects toward a real conversation.
+              </div>
+            </div>
           </div>
-        )}
 
-        <p style={{ textAlign: "center", color: "#71717A", fontSize: 14, marginTop: 16, lineHeight: 1.7 }}>
-          Only clients aligned with project scope and investment level are scheduled.
-        </p>
-        <div style={{ fontSize: 13, color: "#A1A1AA", textAlign: "center", marginTop: 10 }}>
-          No obligation. This is simply to review your project via phone call and confirm details.
+          <div style={{ ...styles.twoColumn, marginTop: 22 }}>
+            <div style={{ ...styles.card, padding: isMobile ? 18 : 22, background: "rgba(0,0,0,0.28)" }} {...cardHoverProps()}>
+              <div style={{ ...styles.sectionLabel, marginBottom: 14 }}>Personal Project Review Based on Your Selections</div>
+              <div
+                style={{
+                  borderRadius: 22,
+                  overflow: "hidden",
+                  border: `1px solid ${colors.border}`,
+                  background: "#000",
+                  aspectRatio: "1 / 1",
+                  position: "relative",
+                }}
+              >
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", background: "#000", cursor: "pointer" }}
+                  onPlay={() => setIsVideoPlaying(true)}
+                  onEnded={() => {
+                    setIsVideoPlaying(false);
+                    setShowHelpModal(true);
+                  }}
+                  onClick={(e) => {
+                    const video = e.currentTarget;
+                    video.loop = false;
+                    video.muted = false;
+                    video.currentTime = 0;
+                    video.play();
+                  }}
+                >
+                  <source src="/harrisexplainervideo.mp4" type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+                <div
+                  style={{
+                    position: "absolute",
+                    right: 12,
+                    bottom: 12,
+                    background: "rgba(0,0,0,0.55)",
+                    color: "#FFFFFF",
+                    fontSize: 12,
+                    padding: "8px 10px",
+                    borderRadius: 999,
+                    letterSpacing: "0.02em",
+                    pointerEvents: "none",
+                  }}
+                >
+                  Tap for sound
+                </div>
+              </div>
+            </div>
+
+            <div style={{ ...styles.card, padding: isMobile ? 18 : 22 }} {...cardHoverProps()}>
+              <div style={styles.sectionLabel}>Why This Converts</div>
+              <div style={{ display: "grid", gap: 12 }}>
+                {[
+                  "Pricing is introduced before the call",
+                  "Low-budget leads self-filter",
+                  "The business feels premium and structured",
+                ].map((item) => (
+                  <div key={item} style={styles.chip}>
+                    {item}
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginTop: 16 }}>
+                <div style={styles.sectionLabel}>Urgency & Momentum</div>
+                <div style={{ display: "grid", gap: 10 }}>
+                  {urgencyItems.map((item) => (
+                    <div key={item} style={{ ...styles.chip, fontSize: 13, lineHeight: 1.6 }}>
+                      {item}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {!isMobile && (
+                <div style={{ display: "grid", gap: 12, marginTop: 18 }}>
+                  <button style={styles.primaryButton} onClick={goToBooking} {...buttonHoverProps()}>
+                    Schedule Project Review
+                  </button>
+                  <button
+                    style={styles.secondaryButton}
+                    onClick={() => {
+                      setEstimateSubstep(2);
+                      setStep("estimate");
+                    }}
+                    {...buttonHoverProps()}
+                  >
+                    Edit Estimate
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-const renderStep = () => {
+  function renderBooking() {
+    const displayPacket = leadPacket ?? getFreshLeadPacket();
+
+    return (
+      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+        <div style={styles.stepBar}>
+          <span>Step 3 of 3</span>
+          <span>Final step: turn interest into a scheduled review.</span>
+          {progressBar()}
+        </div>
+
+        <div style={styles.card} {...cardHoverProps()}>
+          <div style={{ textAlign: "center" }}>
+            <div style={styles.sectionLabel}>Step 3 · Booking</div>
+            <h2 style={styles.h2}>Schedule Your Project Review</h2>
+            <p style={{ ...styles.body, maxWidth: 560, margin: "14px auto 0" }}>
+              Qualified prospects move from estimate to conversation here. Clean, simple, and no chaos.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gap: 14, marginTop: 24 }}>
+            <input
+              style={styles.input}
+              placeholder="Full Name"
+              value={name || displayPacket?.contact.name || ""}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <input
+              style={styles.input}
+              placeholder="Email Address"
+              value={email || displayPacket?.contact.email || ""}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+            <input
+              style={styles.input}
+              placeholder="Phone Number"
+              value={phone || displayPacket?.contact.phone || ""}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </div>
+
+          <div style={{ ...styles.goldCard, marginTop: 20 }}>
+            <div style={styles.sectionLabel}>Project Review Summary</div>
+            <div style={{ fontSize: isMobile ? 24 : 28, fontWeight: 700 }}>
+              {(displayPacket?.estimate.project || project) ?? "Project"} · {(displayPacket?.estimate.finish || finish) ?? "Finish"}
+            </div>
+            <div style={{ fontSize: 14, color: colors.muted, marginTop: 8 }}>
+              Size: {(displayPacket?.estimate.size || size) ?? "Not selected"}
+            </div>
+            <div style={{ fontSize: 14, color: colors.muted, marginTop: 6 }}>
+              Planning range: {displayPacket?.estimate.displayRange || getEstimateDisplay("estimate")}
+            </div>
+          </div>
+
+          <div style={{ marginTop: 16, display: "grid", gap: 10 }}>
+            <div style={{ ...styles.chip, textAlign: "center" }}>
+              Project reviews are limited to qualified opportunities so each client receives focused attention.
+            </div>
+            <div style={{ ...styles.chip, textAlign: "center" }}>
+              Submitting now helps secure the next available review window before scheduling fills.
+            </div>
+          </div>
+
+          {!isMobile && (
+            <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
+              <button style={styles.primaryButton} {...buttonHoverProps()}>
+                Confirm Appointment Request
+              </button>
+              <button style={styles.secondaryButton} onClick={() => setStep("results")} {...buttonHoverProps()}>
+                Back to Results
+              </button>
+            </div>
+          )}
+
+          <p style={{ textAlign: "center", color: "#71717A", fontSize: 14, marginTop: 16, lineHeight: 1.7 }}>
+            Only clients aligned with project scope and investment level are scheduled.
+          </p>
+          <div style={{ fontSize: 13, color: "#A1A1AA", textAlign: "center", marginTop: 10 }}>
+            No obligation. This is simply to review your project via phone call and confirm details.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const renderStep = () => {
     if (step === "home") return renderHome();
     if (step === "estimate") return renderEstimate();
     if (step === "results") return renderResults();
@@ -836,6 +1107,11 @@ const renderStep = () => {
 
   return (
     <div style={styles.page}>
+      <DelayedHelpModal
+        open={showHelpModal}
+        onClose={() => setShowHelpModal(false)}
+        range={estimate ? `${formatCurrency(estimate.min)} – ${formatCurrency(estimate.max)}` : "your project"}
+      />
       <style>
         {`
           @keyframes pulse {
@@ -843,8 +1119,13 @@ const renderStep = () => {
             50% { opacity: 1; transform: scale(1.02); }
             100% { opacity: 0.6; transform: scale(0.98); }
           }
+          @keyframes modalPop {
+            0% { opacity: 0; transform: scale(0.92); }
+            100% { opacity: 1; transform: scale(1); }
+          }
         `}
       </style>
+
       {isCalculating && (
         <div
           style={{
@@ -856,7 +1137,7 @@ const renderStep = () => {
             justifyContent: "center",
             zIndex: 999,
             flexDirection: "column",
-            color: "#E4E4E7"
+            color: "#E4E4E7",
           }}
         >
           <div
@@ -865,7 +1146,7 @@ const renderStep = () => {
               letterSpacing: "0.2em",
               textTransform: "uppercase",
               marginBottom: 14,
-              opacity: 0.8
+              opacity: 0.8,
             }}
           >
             Analyzing Project Scope
@@ -876,19 +1157,21 @@ const renderStep = () => {
               fontSize: 32,
               fontWeight: 700,
               color: "#C9A96E",
-              animation: "pulse 1.2s ease-in-out infinite"
+              animation: "pulse 1.2s ease-in-out infinite",
             }}
           >
             Calculating...
           </div>
         </div>
       )}
+
       <div style={styles.shell}>
         <div style={styles.topBar}>
           <div>
             <div style={styles.eyebrow}>Harris Contracting</div>
             <div style={styles.brandTitle}>Franchise-Level Client Experience</div>
           </div>
+
           {step === "home" && !isMobile && (
             <button
               type="button"
@@ -921,36 +1204,37 @@ const renderStep = () => {
       {isMobile && step !== "home" && (
         <div style={styles.sticky}>
           {step === "estimate" && (
-           <div
-  style={{
-    ...styles.goldCard,
-    marginBottom: 10,
-    padding: 14,
-    borderRadius: 18,
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-    textAlign: "center"
-  }}
->
+            <div
+              style={{
+                ...styles.goldCard,
+                marginBottom: 10,
+                padding: 14,
+                borderRadius: 18,
+                textAlign: "center",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
               <div
-  style={{
-    fontSize: 11,
-    letterSpacing: "0.18em",
-    textTransform: "uppercase",
-    color: "#E4E4E7",
-    width: "100%",
-    display: "flex",
-    justifyContent: "center",
-    alignItems: "center",
-    opacity: pricePulse ? 0.6 : 1,
-    transform: pricePulse ? "translateY(-2px)" : "translateY(0px)",
-    transition: "all 0.25s ease"
-  }}
->
-  <span style={{ textAlign: "center" }}>Current Planning Range</span>
-</div>
+                style={{
+                  fontSize: 11,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: "#E4E4E7",
+                  width: "100%",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  opacity: pricePulse ? 0.6 : 1,
+                  transform: pricePulse ? "translateY(-2px)" : "translateY(0px)",
+                  transition: "all 0.25s ease",
+                }}
+              >
+                <span style={{ textAlign: "center" }}>Current Planning Range</span>
+              </div>
+
               <div
                 style={{
                   fontSize: 28,
@@ -958,22 +1242,33 @@ const renderStep = () => {
                   lineHeight: 1.15,
                   marginTop: 6,
                   textAlign: "center",
-                  transform: pricePulse ? "scale(1.04)" : "scale(1)",
-                  opacity: pricePulse ? 0.95 : 1,
+                  transform: pricePulse ? "scale(1.03)" : "scale(1)",
+                  opacity: pricePulse ? 0.94 : 1,
                   textShadow: pricePulse
                     ? "0 0 10px rgba(201,169,110,0.35), 0 0 20px rgba(201,169,110,0.25)"
                     : "0 0 0px rgba(0,0,0,0)",
-                  transition: "transform 0.25s ease, opacity 0.25s ease, text-shadow 0.3s ease"
+                  transition: "transform 0.25s ease, opacity 0.25s ease, text-shadow 0.3s ease",
                 }}
               >
                 {getEstimateDisplay("estimate")}
               </div>
+
               <div style={{ fontSize: 12, color: colors.muted, marginTop: 6, textAlign: "center" }}>
                 {estimateSubstep === 0
-                  ? (project ? `${project} · Broad Range` : "Choose project type")
+                  ? project
+                    ? `${project} · Broad Range`
+                    : "Choose project type"
                   : estimateSubstep === 1
-                    ? (project && size ? `${project} · ${size}` : (project ? `${project} · Broad Range` : "Choose project type"))
-                    : (project && size && finish ? `${project} · ${size} · ${finish}` : (project && size ? `${project} · ${size}` : "Choose finish level"))}
+                    ? project && size
+                      ? `${project} · ${size}`
+                      : project
+                        ? `${project} · Broad Range`
+                        : "Choose project type"
+                    : project && size && finish
+                      ? `${project} · ${size} · ${finish}`
+                      : project && size
+                        ? `${project} · ${size}`
+                        : "Choose finish level"}
               </div>
             </div>
           )}
@@ -995,14 +1290,16 @@ const renderStep = () => {
             >
               {step === "estimate" ? "Back" : step === "results" ? "Edit Estimate" : "Back to Results"}
             </button>
+
             <button
               style={{ ...styles.primaryButton, flex: 1 }}
               onClick={() => {
                 if (step === "estimate") {
                   if (!hasSelectionForCurrentEstimateStep()) {
                     promptForMissingSelection();
-                  } else if (estimateSubstep < 2) setEstimateSubstep((estimateSubstep + 1) as EstimateSubstep);
-                  else {
+                  } else if (estimateSubstep < 2) {
+                    setEstimateSubstep((estimateSubstep + 1) as EstimateSubstep);
+                  } else {
                     setIsCalculating(true);
                     window.setTimeout(() => {
                       setIsCalculating(false);
@@ -1010,13 +1307,17 @@ const renderStep = () => {
                     }, 900);
                   }
                 } else if (step === "results") {
-                  setStep("booking");
-                } else {
-                  console.log("Confirm Appointment Request");
+                  goToBooking();
                 }
               }}
             >
-              {step === "estimate" ? (estimateSubstep < 2 ? "Continue" : "Continue to Results") : step === "results" ? "Schedule Project Review" : "Confirm Appointment"}
+              {step === "estimate"
+                ? estimateSubstep < 2
+                  ? "Continue"
+                  : "Continue to Results"
+                : step === "results"
+                  ? "Schedule Project Review"
+                  : "Confirm Appointment"}
             </button>
           </div>
         </div>
