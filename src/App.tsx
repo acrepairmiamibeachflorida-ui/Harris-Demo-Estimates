@@ -420,9 +420,31 @@ export default function HarrisContractingLiveDemo() {
         throw new Error(result.message || "Failed to submit lead");
       }
 
-      setSubmitSuccess("Your request was submitted successfully.");
-      console.log("Lead submit success:", result);
-    } catch (error) {
+    console.log("Lead submit success:", result);
+
+// Show message to user
+setSubmitSuccess("Redirecting you to schedule your project review...");
+
+// Build prefill params
+const [firstName, ...rest] = packet.contact.name.trim().split(" ");
+const lastName = rest.join(" ");
+
+const params = new URLSearchParams({
+  first_name: firstName || "",
+  last_name: lastName || "",
+  email: packet.contact.email,
+  phone: packet.contact.phone,
+});
+
+// Small delay for UX (800ms–1200ms is ideal)
+setTimeout(() => {
+  if (packet.estimate.max >= 150000) {
+    window.location.href = `https://connect.yourgbp.com/widget/booking/iUKnfdRzmspcPG1GFO4j?${params.toString()}`;
+  } else {
+    window.location.href = `https://connect.yourgbp.com/widget/booking/d5ysJd35ozY3FOyCBtaN?${params.toString()}`;
+  }
+}, 900);
+     } catch (error) {
       console.error("submitLeadPacket error:", error);
       setSubmitError(
         error instanceof Error ? error.message : "Something went wrong while submitting."
