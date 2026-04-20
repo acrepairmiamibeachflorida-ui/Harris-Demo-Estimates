@@ -166,40 +166,39 @@ function DelayedHelpModal({
           If you would like help before moving forward, our AI assistant can answer common questions about timeline, budget, and next steps.
         </div>
 
-       <div style={{ display: "grid", gap: 12 }}>
-         <button
-  type="button"
-  onClick={() => {
-    const url = "https://app.hvacinabox.com/v2/preview/5LRWcM9MOfl5MdgqCwIL?notrack=true";
+        <div style={{ display: "grid", gap: 12 }}>
+          <button
+            type="button"
+            onClick={() => {
+              const url = "https://app.hvacinabox.com/v2/preview/5LRWcM9MOfl5MdgqCwIL?notrack=true";
+              const isMobile = window.innerWidth < 768;
+              const width = isMobile ? 340 : 420;
+              const height = isMobile ? 560 : 640;
 
-    const isMobile = window.innerWidth < 768;
+              window.open(
+                url,
+                "aiAssistant",
+                `width=${width},height=${height},top=100,left=100,resizable=yes,scrollbars=yes`
+              );
 
-    const width = isMobile ? 360 : 420;
-    const height = isMobile ? 650 : 750;
+              onClose();
+            }}
+            style={{
+              display: "block",
+              width: "100%",
+              background: "#C9A96E",
+              color: "#000000",
+              borderRadius: 16,
+              minHeight: 52,
+              fontWeight: 700,
+              fontSize: 15,
+              border: "none",
+              cursor: "pointer",
+            }}
+          >
+            Speak to Our AI Assistant
+          </button>
 
-    window.open(
-      url,
-      "aiAssistant",
-      `width=${width},height=${height},top=100,left=100,resizable=yes,scrollbars=yes`
-    );
-
-    onClose(); // closes your modal immediately
-  }}
-  style={{
-    display: "block",
-    width: "100%",
-    background: "#C9A96E",
-    color: "#000000",
-    borderRadius: 16,
-    minHeight: 52,
-    fontWeight: 700,
-    fontSize: 15,
-    border: "none",
-    cursor: "pointer",
-  }}
->
-  Speak to Our AI Assistant
-</button>
           <button
             type="button"
             onClick={onClose}
@@ -232,6 +231,9 @@ export default function HarrisContractingLiveDemo() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [leadPacket, setLeadPacket] = useState<LeadPacket | null>(null);
+  const [isSubmittingLead, setIsSubmittingLead] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState("");
   const [isMobile, setIsMobile] = useState(isMobileWidth());
   const [visible, setVisible] = useState(false);
   const [pricePulse, setPricePulse] = useState(false);
@@ -382,6 +384,52 @@ export default function HarrisContractingLiveDemo() {
     finalizeLeadPacket();
     setShowHelpModal(false);
     setStep("booking");
+  }
+
+  async function submitLeadPacket() {
+    const packet = getFreshLeadPacket();
+
+    if (!packet) {
+      setSubmitError("Missing estimate data.");
+      setSubmitSuccess("");
+      return;
+    }
+
+    if (!name.trim() || !email.trim() || !phone.trim()) {
+      setSubmitError("Please complete name, email, and phone.");
+      setSubmitSuccess("");
+      return;
+    }
+
+    setIsSubmittingLead(true);
+    setSubmitError("");
+    setSubmitSuccess("");
+
+    try {
+      const response = await fetch("/api/lead-packet", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(packet),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to submit lead");
+      }
+
+      setSubmitSuccess("Your request was submitted successfully.");
+      console.log("Lead submit success:", result);
+    } catch (error) {
+      console.error("submitLeadPacket error:", error);
+      setSubmitError(
+        error instanceof Error ? error.message : "Something went wrong while submitting."
+      );
+    } finally {
+      setIsSubmittingLead(false);
+    }
   }
 
   function buttonHoverProps(): React.HTMLAttributes<HTMLButtonElement> {
@@ -1054,6 +1102,40 @@ export default function HarrisContractingLiveDemo() {
             />
           </div>
 
+          {submitError && (
+            <div
+              style={{
+                marginTop: 14,
+                borderRadius: 16,
+                padding: "12px 14px",
+                background: "rgba(220,38,38,0.12)",
+                border: "1px solid rgba(220,38,38,0.28)",
+                color: "#FCA5A5",
+                fontSize: 14,
+                textAlign: "center",
+              }}
+            >
+              {submitError}
+            </div>
+          )}
+
+          {submitSuccess && (
+            <div
+              style={{
+                marginTop: 14,
+                borderRadius: 16,
+                padding: "12px 14px",
+                background: "rgba(34,197,94,0.12)",
+                border: "1px solid rgba(34,197,94,0.28)",
+                color: "#86EFAC",
+                fontSize: 14,
+                textAlign: "center",
+              }}
+            >
+              {submitSuccess}
+            </div>
+          )}
+
           <div style={{ ...styles.goldCard, marginTop: 20 }}>
             <div style={styles.sectionLabel}>Project Review Summary</div>
             <div style={{ fontSize: isMobile ? 24 : 28, fontWeight: 700 }}>
@@ -1078,8 +1160,17 @@ export default function HarrisContractingLiveDemo() {
 
           {!isMobile && (
             <div style={{ display: "grid", gap: 12, marginTop: 20 }}>
-              <button style={styles.primaryButton} {...buttonHoverProps()}>
-                Confirm Appointment Request
+              <button
+                style={{
+                  ...styles.primaryButton,
+                  opacity: isSubmittingLead ? 0.7 : 1,
+                  cursor: isSubmittingLead ? "not-allowed" : "pointer",
+                }}
+                onClick={submitLeadPacket}
+                disabled={isSubmittingLead}
+                {...buttonHoverProps()}
+              >
+                {isSubmittingLead ? "Submitting..." : "Confirm Appointment Request"}
               </button>
               <button style={styles.secondaryButton} onClick={() => setStep("results")} {...buttonHoverProps()}>
                 Back to Results
@@ -1112,6 +1203,7 @@ export default function HarrisContractingLiveDemo() {
         onClose={() => setShowHelpModal(false)}
         range={estimate ? `${formatCurrency(estimate.min)} – ${formatCurrency(estimate.max)}` : "your project"}
       />
+
       <style>
         {`
           @keyframes pulse {
@@ -1292,7 +1384,12 @@ export default function HarrisContractingLiveDemo() {
             </button>
 
             <button
-              style={{ ...styles.primaryButton, flex: 1 }}
+              style={{
+                ...styles.primaryButton,
+                flex: 1,
+                opacity: step === "booking" && isSubmittingLead ? 0.7 : 1,
+                cursor: step === "booking" && isSubmittingLead ? "not-allowed" : "pointer",
+              }}
               onClick={() => {
                 if (step === "estimate") {
                   if (!hasSelectionForCurrentEstimateStep()) {
@@ -1308,8 +1405,13 @@ export default function HarrisContractingLiveDemo() {
                   }
                 } else if (step === "results") {
                   goToBooking();
+                } else if (step === "booking") {
+                  if (!isSubmittingLead) {
+                    void submitLeadPacket();
+                  }
                 }
               }}
+              disabled={step === "booking" && isSubmittingLead}
             >
               {step === "estimate"
                 ? estimateSubstep < 2
@@ -1317,7 +1419,9 @@ export default function HarrisContractingLiveDemo() {
                   : "Continue to Results"
                 : step === "results"
                   ? "Schedule Project Review"
-                  : "Confirm Appointment"}
+                  : isSubmittingLead
+                    ? "Submitting..."
+                    : "Confirm Appointment"}
             </button>
           </div>
         </div>
