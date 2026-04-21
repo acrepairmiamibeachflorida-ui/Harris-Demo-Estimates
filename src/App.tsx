@@ -241,6 +241,7 @@ export default function HarrisContractingLiveDemo() {
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const [showTransition, setShowTransition] = useState(false);
 
   const estimate = useMemo(() => {
     if (!project) return null;
@@ -423,12 +424,16 @@ export default function HarrisContractingLiveDemo() {
     console.log("Lead submit success:", result);
 
 // Show message to user
-setSubmitSuccess("Redirecting you to schedule your project review...");
+console.log("Lead submit success:", result);
 
-// Build prefill params
+// Trigger premium transition
+setShowTransition(true);
+
+// Split name for prefill
 const [firstName, ...rest] = packet.contact.name.trim().split(" ");
 const lastName = rest.join(" ");
 
+// Build params
 const params = new URLSearchParams({
   first_name: firstName || "",
   last_name: lastName || "",
@@ -436,14 +441,14 @@ const params = new URLSearchParams({
   phone: packet.contact.phone,
 });
 
-// Small delay for UX (800ms–1200ms is ideal)
+// Redirect after short delay
 setTimeout(() => {
   if (packet.estimate.max >= 150000) {
     window.location.href = `https://connect.yourgbp.com/widget/booking/iUKnfdRzmspcPG1GFO4j?${params.toString()}`;
   } else {
     window.location.href = `https://connect.yourgbp.com/widget/booking/d5ysJd35ozY3FOyCBtaN?${params.toString()}`;
   }
-}, 900);
+}, 1800);
      } catch (error) {
       console.error("submitLeadPacket error:", error);
       setSubmitError(
@@ -1218,7 +1223,9 @@ setTimeout(() => {
     return renderBooking();
   };
 
+
   return (
+  <>
     <div style={styles.page}>
       <DelayedHelpModal
         open={showHelpModal}
@@ -1237,6 +1244,20 @@ setTimeout(() => {
             0% { opacity: 0; transform: scale(0.92); }
             100% { opacity: 1; transform: scale(1); }
           }
+          @keyframes transitionSpin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+            @keyframes transitionFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
         `}
       </style>
 
@@ -1447,7 +1468,158 @@ setTimeout(() => {
             </button>
           </div>
         </div>
-      )}
+            )}
     </div>
-  );
+
+   {showTransition && (
+  <div
+    style={{
+      position: "fixed",
+      inset: 0,
+      zIndex: 9999,
+      background:
+        "radial-gradient(circle at top, rgba(201,169,110,0.12), transparent 30%), rgba(8,8,8,0.96)",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "#ffffff",
+      padding: 20,
+      backdropFilter: "blur(8px)",
+    }}
+  >
+    <div
+      style={{
+        maxWidth: 520,
+        width: "100%",
+        padding: isMobile ? 22 : 30,
+        textAlign: "center",
+        borderRadius: 28,
+        border: "1px solid rgba(201,169,110,0.26)",
+        background: "linear-gradient(180deg, rgba(22,22,22,0.98), rgba(14,14,14,0.98))",
+        boxShadow:
+          "0 30px 70px rgba(0,0,0,0.45), 0 0 40px rgba(201,169,110,0.08)",
+        animation: "transitionFade 0.45s ease forwards",
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          letterSpacing: "0.24em",
+          textTransform: "uppercase",
+          color: "#A1A1AA",
+          marginBottom: 12,
+        }}
+      >
+        Project Review Confirmed
+      </div>
+
+      <div
+        style={{
+          fontSize: isMobile ? 28 : 36,
+          fontWeight: 700,
+          lineHeight: 1.08,
+          marginBottom: 12,
+        }}
+      >
+        {estimate && estimate.max >= 150000
+          ? "Preparing Your Priority Booking Page"
+          : "Preparing Your Booking Page"}
+      </div>
+
+      <div
+        style={{
+          color: "#B4B4BC",
+          marginBottom: 22,
+          fontSize: 15,
+          lineHeight: 1.7,
+          maxWidth: 420,
+          marginInline: "auto",
+        }}
+      >
+        Your estimate has been received. We’re now preparing the next available
+        project review times for you.
+      </div>
+
+      <div
+        style={{
+          border: "1px solid rgba(201,169,110,0.18)",
+          borderRadius: 20,
+          padding: 18,
+          marginBottom: 22,
+          textAlign: "left",
+          background:
+            "linear-gradient(180deg, rgba(201,169,110,0.08), rgba(255,255,255,0.02))",
+        }}
+      >
+        <div style={{ fontSize: 12, color: "#8B8B94", marginBottom: 4 }}>
+          Project
+        </div>
+        <div style={{ marginBottom: 12, fontWeight: 600 }}>
+          {project || "Not selected"}
+        </div>
+
+        <div style={{ fontSize: 12, color: "#8B8B94", marginBottom: 4 }}>
+          Finish
+        </div>
+        <div style={{ marginBottom: 12, fontWeight: 600 }}>
+          {finish || "Not selected"}
+        </div>
+
+        <div style={{ fontSize: 12, color: "#8B8B94", marginBottom: 4 }}>
+          Planning Range
+        </div>
+        <div style={{ fontWeight: 700, color: "#E7D1A5" }}>
+          {getEstimateDisplay("estimate")}
+        </div>
+      </div>
+
+      <div
+        style={{
+          width: "100%",
+          height: 6,
+          borderRadius: 999,
+          background: "rgba(255,255,255,0.08)",
+          overflow: "hidden",
+          marginBottom: 18,
+        }}
+      >
+        <div
+          style={{
+            width: "68%",
+            height: "100%",
+            borderRadius: 999,
+            background: "linear-gradient(90deg, #8F7443, #C9A96E, #E7D1A5)",
+            boxShadow: "0 0 18px rgba(201,169,110,0.25)",
+            transition: "width 0.8s ease",
+          }}
+        />
+      </div>
+
+      <div
+        style={{
+          width: 44,
+          height: 44,
+          border: "2px solid rgba(255,255,255,0.14)",
+          borderTop: "2px solid #C9A96E",
+          borderRadius: "50%",
+          margin: "0 auto",
+          animation: "transitionSpin 1s linear infinite",
+        }}
+      />
+
+      <div
+        style={{
+          marginTop: 14,
+          fontSize: 12,
+          color: "#8E8E96",
+          letterSpacing: "0.04em",
+        }}
+      >
+        Redirecting you to available times...
+      </div>
+    </div>
+  </div>
+    )}
+  </>
+);
 }
