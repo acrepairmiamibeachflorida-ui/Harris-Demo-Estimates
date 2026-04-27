@@ -444,7 +444,7 @@ const params = new URLSearchParams({
 // Redirect after short delay
 setTimeout(() => {
   if (packet.estimate.max >= 150000) {
-    window.location.href = `https://connect.yourgbp.com/widget/booking/iUKnfdRzmspcPG1GFO4j?${params.toString()}`;
+    window.location.href = `https://app.hvacinabox.com/v2/preview/3045iLpHGDhtUbzCPVUv?${params.toString()}`;
   } else {
     window.location.href = `https://connect.yourgbp.com/widget/booking/d5ysJd35ozY3FOyCBtaN?${params.toString()}`;
   }
